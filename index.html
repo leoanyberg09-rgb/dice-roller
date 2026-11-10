@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dice roller</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  body{font-family:'Inter',sans-serif;background:#0a0a0f;color:#fff;overflow-x:hidden;user-select:none}
+
+  /* Dice */
+  .dice-container{perspective:600px}
+  .dice{
+    width:160px;height:160px;
+    background:linear-gradient(145deg,#1a1a2e,#16162a);
+    border:2px solid rgba(168,85,247,.3);
+    border-radius:20px;
+    position:relative;
+    display:grid;
+    padding:20px;
+    box-shadow:0 0 40px rgba(168,85,247,.15),inset 0 0 30px rgba(0,0,0,.5);
+    transition:border-color .3s,box-shadow .3s;
+  }
+  .dice:hover{
+    border-color:rgba(168,85,247,.6);
+    box-shadow:0 0 60px rgba(168,85,247,.25),inset 0 0 30px rgba(0,0,0,.5);
+  }
+  .dice.rolling{animation:diceRoll .15s ease-in-out 6}
+  @keyframes diceRoll{
+    0%{transform:rotateX(0) rotateZ(0) scale(1)}
+    25%{transform:rotateX(15deg) rotateZ(10deg) scale(.95)}
+    50%{transform:rotateX(-10deg) rotateZ(-8deg) scale(1.05)}
+    75%{transform:rotateX(8deg) rotateZ(5deg) scale(.98)}
+    100%{transform:rotateX(0) rotateZ(0) scale(1)}
+  }
+
+  /* Dot positions for dice faces */
+  .dot{
+    width:22px;height:22px;
+    background:radial-gradient(circle,#a855f7,#7c3aed);
+    border-radius:50%;
+    box-shadow:0 0 8px rgba(168,85,247,.5);
+    align-self:center;justify-self:center;
+  }
+  .dot.cyan{background:radial-gradient(circle,#06b6d4,#0891b2);box-shadow:0 0 8px rgba(6,182,212,.5)}
+  .dot.pink{background:radial-gradient(circle,#f43f5e,#e11d48);box-shadow:0 0 8px rgba(244,63,94,.5)}
+  .dot.gold{background:radial-gradient(circle,#fbbf24,#f59e0b);box-shadow:0 0 8px rgba(251,191,36,.5)}
+
+  /* Dice face layouts */
+  .face-1{grid-template:1fr/1fr;place-items:center}
+  .face-2{grid-template:1fr 1fr/1fr;place-items:center}
+  .face-2 .dot:nth-child(1){justify-self:start;align-self:start}
+  .face-2 .dot:nth-child(2){justify-self:end;align-self:end}
+  .face-3{grid-template:1fr 1fr 1fr/1fr;place-items:center}
+  .face-3 .dot:nth-child(1){justify-self:start;align-self:start}
+  .face-3 .dot:nth-child(2){justify-self:center;align-self:center}
+  .face-3 .dot:nth-child(3){justify-self:end;align-self:end}
+  .face-4{grid-template:1fr 1fr/1fr 1fr;place-items:center}
+  .face-5{grid-template:1fr 1fr 1fr/1fr 1fr 1fr;place-items:center}
+  .face-5 .dot:nth-child(1){grid-area:1/1;justify-self:start;align-self:start}
+  .face-5 .dot:nth-child(2){grid-area:1/3;justify-self:end;align-self:start}
+  .face-5 .dot:nth-child(3){grid-area:2/2;justify-self:center;align-self:center}
+  .face-5 .dot:nth-child(4){grid-area:3/1;justify-self:start;align-self:end}
+  .face-5 .dot:nth-child(5){grid-area:3/3;justify-self:end;align-self:end}
+  .face-6{grid-template:1fr 1fr 1fr/1fr 1fr;place-items:center}
+
+  /* Flying number */
+  .fly-num{
+    position:absolute;pointer-events:none;
+    font-weight:900;font-size:28px;
+    animation:flyUp .8s ease-out forwards;
+    text-shadow:0 0 20px currentColor;
+  }
+  @keyframes flyUp{
+    0%{opacity:1;transform:translateY(0) scale(1)}
+    100%{opacity:0;transform:translateY(-80px) scale(1.3)}
+  }
+
+  /* Particle burst */
+  .particle{
+    position:absolute;pointer-events:none;border-radius:50%;
+    animation:particleBurst .6s ease-out forwards;
+  }
+  @keyframes particleBurst{
+    0%{opacity:1;transform:translate(0,0) scale(1)}
+    100%{opacity:0;transform:translate(var(--px),var(--py)) scale(0)}
+  }
+
+  /* Shop item */
+  .shop-item{
+    transition:all .2s ease;
+  }
+  .shop-item:not(.disabled):hover{
+    transform:translateX(4px);
+    border-color:rgba(168,85,247,.3);
+    background:rgba(168,85,247,.05);
+  }
+  .shop-item.disabled{opacity:.4;cursor:not-allowed}
+
+  /* Shake */
+  @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-3px)}75%{transform:translateX(3px)}}
+  .shake{animation:shake .2s ease 2}
+
+  /* Glow pulse on score change */
+  @keyframes scorePulse{0%{transform:scale(1)}50%{transform:scale(1.08)}100%{transform:scale(1)}}
+  .score-pulse{animation:scorePulse .2s ease}
+
+  /* Progress bar fill */
+  .progress-fill{transition:width .3s ease}
+
+  /* Auto roll indicator */
+  @keyframes autoSpin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
+  .auto-spin{animation:autoSpin 2s linear infinite}
+
+  /* Scrollbar */
+  ::-webkit-scrollbar{width:4px}
+  ::-webkit-scrollbar-track{background:transparent}
+  ::-webkit-scrollbar-thumb{background:#27272a;border-radius:2px}
+
+  /* Lucky flash */
+  @keyframes luckyFlash{0%{opacity:0;transform:scale(.5)}50%{opacity:1;transform:scale(1.1)}100%{opacity:0;transform:scale(1.5)}}
+  .lucky-flash{animation:luckyFlash .6s ease-out forwards;pointer-events:none}
+</style>
+<script>
+tailwind.config={theme:{extend:{colors:{neon:'#a855f7',neon2:'#06b6d4',neon3:'#f43f5e'}}}}
+</script>
+</head>
+<body class="min-h-screen flex flex-col">
+
+<!-- Header -->
+<header class="border-b border-white/5 bg-black/50 backdrop-blur-sm px-4 py-3 flex items-center justify-between z-50 relative">
+  <div class="flex items-center gap-2">
+    <span class="text-xl">🎲</span>
+    <span class="font-bold text-lg tracking-tight">Dice roller</span>
+  </div>
+  <div class="flex items-center gap-4">
+    <div class="text-xs text-zinc-500 font-mono">Rolls: <span id="total-rolls" class="text-zinc-300">0</span></div>
+    <button onclick="resetGame()" class="text-xs text-zinc-600 hover:text-neon3 transition-colors font-mono">RESET</button>
+  </div>
+</header>
+
+<!-- Main -->
+<main class="flex-1 flex flex-col lg:flex-row">
+
+  <!-- Left: Game Area -->
+  <div class="flex-1 flex flex-col items-center justify-center p-6 relative overflow-hidden" id="game-area">
+
+    <!-- Score -->
+    <div class="mb-2 text-center">
+      <div id="score" class="text-5xl md:text-7xl font-black tracking-tight text-white">0</div>
+      <div class="text-sm text-zinc-500 font-mono mt-1">points</div>
+    </div>
+
+    <!-- Per second -->
+    <div class="mb-8 flex items-center gap-2">
+      <div class="w-2 h-2 rounded-full bg-neon2 animate-pulse"></div>
+      <span class="text-xs text-zinc-400 font-mono"><span id="per-second">0</span> pts/sec</span>
+    </div>
+
+    <!-- Dice -->
+    <div class="dice-container mb-6 relative" id="dice-wrapper">
+      <div class="dice face-1" id="dice" onclick="rollDice()">
+        <div class="dot"></div>
+      </div>
+      <!-- Flying numbers spawn here -->
+    </div>
+
+    <!-- Dice type label -->
+    <div class="mb-4 flex items-center gap-2">
+      <span class="text-xs font-mono text-neon uppercase tracking-widest" id="dice-type-label">d6</span>
+      <span class="text-[10px] text-zinc-600 font-mono">click to roll</span>
+    </div>
+
+    <!-- Last roll -->
+    <div class="flex items-center gap-3 mb-6">
+      <span class="text-xs text-zinc-600">Last roll:</span>
+      <span id="last-roll" class="text-2xl font-black text-neon">—</span>
+      <span id="lucky-badge" class="hidden px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-yellow-400 bg-yellow-400/10 border border-yellow-400/20 rounded">LUCKY!</span>
+    </div>
+
+    <!-- Roll history -->
+    <div class="flex items-center gap-1.5 flex-wrap justify-center max-w-xs">
+      <span class="text-[10px] text-zinc-700 font-mono mr-1">History:</span>
+      <div id="history" class="flex items-center gap-1.5 flex-wrap justify-center"></div>
+    </div>
+  </div>
+
+  <!-- Right: Shop -->
+  <div class="lg:w-80 xl:w-96 border-t lg:border-t-0 lg:border-l border-white/5 bg-black/30 overflow-y-auto max-h-screen">
+    <div class="p-4 border-b border-white/5">
+      <h2 class="font-bold text-sm flex items-center gap-2">
+        <i data-lucide="shopping-bag" class="w-4 h-4 text-neon"></i>
+        Shop
+      </h2>
+    </div>
+
+    <div class="p-3 space-y-2" id="shop">
+
+      <!-- Upgrade: Auto Roll -->
+      <div class="shop-item p-3 rounded-xl border border-white/5 bg-white/[0.01] cursor-pointer" onclick="buyUpgrade('autoRoll')" id="shop-autoRoll">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-lg bg-neon2/10 flex items-center justify-center flex-shrink-0">
+            <i data-lucide="timer" class="w-4 h-4 text-neon2"></i>
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="text-xs font-semibold flex items-center gap-1">Auto Roll <span class="text-[9px] text-zinc-500 font-mono" id="count-autoRoll">0</span></div>
+            <div class="text-[10px] text-zinc-500">Rolls the dice automatically</div>
+          </div>
+          <div class="text-xs font-bold text-neon2 font-mono" id="price-autoRoll">50</div>
+        </div>
+      </div>
+
+      <!-- Upgrade: Multi Dice -->
+      <div class="shop-item p-3 rounded-xl border border-white/5 bg-white/[0.01] cursor-pointer" onclick="buyUpgrade('multiDice')" id="shop-multiDice">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-lg bg-neon/10 flex items-center justify-center flex-shrink-0">
+            <i data-lucide="copy" class="w-4 h-4 text-neon"></i>
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="text-xs font-semibold flex items-center gap-1">Multi Dice <span class="text-[9px] text-zinc-500 font-mono" id="count-multiDice">0</span></div>
+            <div class="text-[10px] text-zinc-500">Roll 2 dice at once</div>
+          </div>
+          <div class="text-xs font-bold text-neon font-mono" id="price-multiDice">200</div>
+        </div>
+      </div>
+
+      <!-- Upgrade: Lucky Charm -->
+      <div class="shop-item p-3 rounded-xl border border-white/5 bg-white/[0.01] cursor-pointer" onclick="buyUpgrade('luckyCharm')" id="shop-luckyCharm">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-lg bg-yellow-400/10 flex items-center justify-center flex-shrink-0">
+            <i data-lucide="clover" class="w-4 h-4 text-yellow-400"></i>
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="text-xs font-semibold flex items-center gap-1">Lucky Charm <span class="text-[9px] text-zinc-500 font-mono" id="count-luckyCharm">0</span></div>
+            <div class="text-[10px] text-zinc-500">+10% chance for double points</div>
+          </div>
+          <div class="text-xs font-bold text-yellow-400 font-mono" id="price-luckyCharm">500</div>
+        </div>
+      </div>
+
+      <!-- Upgrade: D8 -->
+      <div class="shop-item p-3 rounded-xl border border-white/5 bg-white/[0.01] cursor-pointer" onclick="buyUpgrade('d8')" id="shop-d8">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-lg bg-neon3/10 flex items-center justify-center flex-shrink-0">
+            <span class="text-xs font-black text-neon3">D8</span>
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="text-xs font-semibold">Upgrade to d8</div>
+            <div class="text-[10px] text-zinc-500">Roll 1-8 instead of 1-6</div>
+          </div>
+          <div class="text-xs font-bold text-neon3 font-mono" id="price-d8">1,000</div>
+        </div>
+      </div>
+
+      <!-- Upgrade: D12 -->
+      <div class="shop-item p-3 rounded-xl border border-white/5 bg-white/[0.01] cursor-pointer" onclick="buyUpgrade('d12')" id="shop-d12">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-lg bg-neon2/10 flex items-center justify-center flex-shrink-0">
+            <span class="text-xs font-black text-neon2">D12</span>
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="text-xs font-semibold">Upgrade to d12</div>
+            <div class="text-[10px] text-zinc-500">Roll 1-12 instead</div>
+          </div>
+          <div class="text-xs font-bold text-neon2 font-mono" id="price-d12">5,000</div>
+        </div>
+      </div>
+
+      <!-- Upgrade: D20 -->
+      <div class="shop-item p-3 rounded-xl border border-white/5 bg-white/[0.01] cursor-pointer" onclick="buyUpgrade('d20')" id="shop-d20">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-lg bg-neon/10 flex items-center justify-center flex-shrink-0">
+            <span class="text-xs font-black text-neon">D20</span>
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="text-xs font-semibold">Upgrade to d20</div>
+            <div class="text-[10px] text-zinc-500">Roll 1-20 — NAT 20!</div>
+          </div>
+          <div class="text-xs font-bold text-neon font-mono" id="price-d20">25,000</div>
+        </div>
+      </div>
+
+      <!-- Upgrade: Point Multiplier -->
+      <div class="shop-item p-3 rounded-xl border border-white/5 bg-white/[0.01] cursor-pointer" onclick="buyUpgrade('multiplier')" id="shop-multiplier">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-lg bg-green-400/10 flex items-center justify-center flex-shrink-0">
+            <i data-lucide="trending-up" class="w-4 h-4 text-green-400"></i>
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="text-xs font-semibold flex items-center gap-1">Multiplier <span class="text-[9px] text-zinc-500 font-mono" id="count-multiplier">x1</span></div>
+            <div class="text-[10px] text-zinc-500">All points x2</div>
+          </div>
+          <div class="text-xs font-bold text-green-400 font-mono" id="price-multiplier">2,000</div>
+        </div>
+      </div>
+
+      <!-- Upgrade: Crit Hit -->
+      <div class="shop-item p-3 rounded-xl border border-white/5 bg-white/[0.01] cursor-pointer" onclick="buyUpgrade('critHit')" id="shop-critHit">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-lg bg-red-400/10 flex items-center justify-center flex-shrink-0">
+            <i data-lucide="zap" class="w-4 h-4 text-red-400"></i>
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="text-xs font-semibold flex items-center gap-1">Crit Hit <span class="text-[9px] text-zinc-500 font-mono" id="count-critHit">0</span></div>
+            <div class="text-[10px] text-zinc-500">Max roll = 5x points</div>
+          </div>
+          <div class="text-xs font-bold text-red-400 font-mono" id="price-critHit">10,000</div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Stats -->
+    <div class="p-4 border-t border-white/5 space-y-2">
+      <div class="text-[10px] font-mono text-zinc-600 uppercase tracking-widest mb-2">Stats</div>
+      <div class="flex justify-between text-[11px]"><span class="text-zinc-500">Total earned</span><span class="font-mono text-zinc-300" id="stat-total">0</span></div>
+      <div class="flex justify-between text-[11px]"><span class="text-zinc-500">Best roll</span><span class="font-mono text-neon" id="stat-best">0</span></div>
+      <div class="flex justify-between text-[11px]"><span class="text-zinc-500">Crits landed</span><span class="font-mono text-red-400" id="stat-crits">0</span></div>
+      <div class="flex justify-between text-[11px]"><span class="text-zinc-500">Lucky doubles</span><span class="font-mono text-yellow-400" id="stat-lucky">0</span></div>
+      <div class="flex justify-between text-[11px]"><span class="text-zinc-500">Dice type</span><span class="font-mono text-neon2" id="stat-dice">d6</span></div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+lucide.createIcons();
+
+// ===== GAME STATE =====
+var state = {
+  score: 0,
+  totalEarned: 0,
+  totalRolls: 0,
+  bestRoll: 0,
+  crits: 0,
+  luckyDoubles: 0,
+  diceMax: 6,
+  diceType: 'd6',
+  multiplier: 1,
+  upgrades: {
+    autoRoll:    { count: 0, basePrice: 50,   priceScale: 1.4 },
+    multiDice:   { count: 0, basePrice: 200,  priceScale: 1.5 },
+    luckyCharm:  { count: 0, basePrice: 500,  priceScale: 1.6 },
+    d8:          { count: 0, basePrice: 1000, priceScale: 1, once: true },
+    d12:         { count: 0, basePrice: 5000, priceScale: 1, once: true },
+    d20:         { count: 0, basePrice: 25000,priceScale: 1, once: true },
+    multiplier:  { count: 0, basePrice: 2000, priceScale: 2.5 },
+    critHit:     { count: 0, basePrice: 10000,priceScale: 1.8 }
+  },
+  history: []
+};
+
+function getPrice(key) {
+  var u = state.upgrades[key];
+  return Math.floor(u.basePrice * Math.pow(u.priceScale, u.count));
+}
+
+function formatNum(n) {
+  if (n >= 1000000) return (n/1000000).toFixed(1) + 'M';
+  if (n >= 1000) return (n/1000).toFixed(1) + 'K';
+  return n.toLocaleString();
+}
+
+// ===== ROLL DICE =====
+var rolling = false;
+
+function rollDice() {
+  if (rolling) return;
+  rolling = true;
+
+  var dice = document.getElementById('dice');
+  dice.classList.add('rolling');
+
+  // Determine number of dice to roll
+  var numDice = 1 + state.upgrades.multiDice.count;
+  var rolls = [];
+  for (var i = 0; i < numDice; i++) {
+    rolls.push(Math.floor(Math.random() * state.diceMax) + 1);
+  }
+  var total = rolls.reduce(function(a,b){return a+b}, 0);
+
+  // Lucky charm check
+  var luckyChance = Math.min(state.upgrades.luckyCharm.count * 0.10, 0.80);
+  var isLucky = Math.random() < luckyChance;
+  if (isLucky) {
+    total *= 2;
+    state.luckyDoubles++;
+  }
+
+  // Crit hit check
+  var isCrit = false;
+  if (state.upgrades.critHit.count > 0) {
+    var allMax = rolls.every(function(r){return r === state.diceMax});
+    if (allMax) {
+      isCrit = true;
+      total *= 5;
+      state.crits++;
+    }
+  }
+
+  // Apply multiplier
+  total *= state.multiplier;
+
+  // Animate random faces during roll
+  var flickCount = 0;
+  var flickInterval = setInterval(function() {
+    var randFace = Math.floor(Math.random() * state.diceMax) + 1;
+    renderDiceFace(dice, randFace);
+    flickCount++;
+    if (flickCount >= 6) {
+      clearInterval(flickInterval);
+      // Show final face (first die)
+      renderDiceFace(dice, rolls[0]);
+      dice.classList.remove('rolling');
+      finishRoll(total, rolls, isLucky, isCrit);
+    }
+  }, 80);
+}
+
+function finishRoll(total, rolls, isLucky, isCrit) {
+  state.score += total;
+  state.totalEarned += total;
+  state.totalRolls++;
+  var maxRoll = Math.max.apply(null, rolls);
+  if (maxRoll > state.bestRoll) state.bestRoll = maxRoll;
+
+  // History
+  state.history.unshift(total);
+  if (state.history.length > 12) state.history.pop();
+
+  // Update UI
+  var scoreEl = document.getElementById('score');
+  scoreEl.textContent = formatNum(state.score);
+  scoreEl.classList.remove('score-pulse');
+  void scoreEl.offsetWidth;
+  scoreEl.classList.add('score-pulse');
+
+  document.getElementById('total-rolls').textContent = formatNum(state.totalRolls);
+  document.getElementById('last-roll').textContent = '+' + formatNum(total);
+
+  // Lucky badge
+  var lb = document.getElementById('lucky-badge');
+  if (isLucky || isCrit) {
+    lb.classList.remove('hidden');
+    lb.textContent = isCrit ? 'CRIT x5!' : 'LUCKY x2!';
+    lb.className = 'px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider rounded ' +
+      (isCrit ? 'text-red-400 bg-red-400/10 border border-red-400/20' : 'text-yellow-400 bg-yellow-400/10 border border-yellow-400/20');
+    setTimeout(function(){lb.classList.add('hidden')}, 1500);
+  }
+
+  // Flying number
+  spawnFlyingNumber(total, isLucky, isCrit);
+
+  // Particles
+  spawnParticles(isCrit ? 20 : (isLucky ? 12 : 6), isCrit ? '#f43f5e' : (isLucky ? '#fbbf24' : '#a855f7'));
+
+  // Lucky flash
+  if (isCrit) {
+    var flash = document.createElement('div');
+    flash.className = 'lucky-flash absolute inset-0 rounded-3xl border-2 border-red-400';
+    flash.style.boxShadow = '0 0 60px rgba(244,63,94,0.5)';
+    document.getElementById('dice-wrapper').appendChild(flash);
+    setTimeout(function(){flash.remove()}, 600);
+  } else if (isLucky) {
+    var flash = document.createElement('div');
+    flash.className = 'lucky-flash absolute inset-0 rounded-3xl border-2 border-yellow-400';
+    flash.style.boxShadow = '0 0 60px rgba(251,191,36,0.5)';
+    document.getElementById('dice-wrapper').appendChild(flash);
+    setTimeout(function(){flash.remove()}, 600);
+  }
+
+  updateHistory();
+  updateStats();
+  updateShop();
+  rolling = false;
+}
+
+// ===== RENDER DICE FACE =====
+function renderDiceFace(dice, value) {
+  var max = state.diceMax;
+  var dotClass = 'dot';
+  if (max >= 20) dotClass += ' gold';
+  else if (max >= 12) dotClass += ' pink';
+  else if (max >= 8) dotClass += ' cyan';
+
+  // For d8+, show number instead of dots
+  if (max > 6) {
+    dice.className = 'dice';
+    dice.innerHTML = '<div class="flex items-center justify-center w-full h-full"><span class="text-5xl font-black" style="color:' +
+      (max>=20?'#fbbf24':max>=12?'#f43f5e':'#06b6d4') + '">' + value + '</span></div>';
+    return;
+  }
+
+  // d6 - show dots
+  var faceClass = 'face-' + Math.min(value, 6);
+  dice.className = 'dice ' + faceClass;
+
+  var html = '';
+  for (var i = 0; i < value; i++) {
+    html += '<div class="' + dotClass + '"></div>';
+  }
+  dice.innerHTML = html;
+}
+
+// ===== FLYING NUMBER =====
+function spawnFlyingNumber(total, isLucky, isCrit) {
+  var wrapper = document.getElementById('dice-wrapper');
+  var el = document.createElement('div');
+  el.className = 'fly-num';
+  el.textContent = '+' + formatNum(total);
+  if (isCrit) el.style.color = '#f43f5e';
+  else if (isLucky) el.style.color = '#fbbf24';
+  else el.style.color = '#a855f7';
+  el.style.left = (60 + Math.random() * 40) + 'px';
+  el.style.top = '20px';
+  wrapper.appendChild(el);
+  setTimeout(function(){el.remove()}, 800);
+}
+
+// ===== PARTICLES =====
+function spawnParticles(count, color) {
+  var area = document.getElementById('game-area');
+  var rect = document.getElementById('dice-wrapper').getBoundingClientRect();
+  var cx = rect.left + rect.width/2;
+  var cy = rect.top + rect.height/2;
+
+  for (var i = 0; i < count; i++) {
+    var p = document.createElement('div');
+    p.className = 'particle';
+    var angle = (Math.PI * 2 / count) * i + (Math.random() - 0.5) * 0.5;
+    var dist = 60 + Math.random() * 80;
+    var px = Math.cos(angle) * dist;
+    var py = Math.sin(angle) * dist;
+    p.style.cssText = 'left:' + cx + 'px;top:' + cy + 'px;width:' + (4+Math.random()*6) + 'px;height:' + (4+Math.random()*6) + 'px;background:' + color + ';--px:' + px + 'px;--py:' + py + 'px;box-shadow:0 0 6px ' + color;
+    area.appendChild(p);
+    setTimeout(function(el){el.remove()}(p), 600);
+  }
+}
+
+// ===== HISTORY =====
+function updateHistory() {
+  var el = document.getElementById('history');
+  var html = '';
+  state.history.forEach(function(v, i) {
+    var opacity = 1 - i * 0.07;
+    html += '<span class="text-[10px] font-mono text-neon/80 px-1.5 py-0.5 rounded bg-white/[0.03]" style="opacity:' + opacity + '">' + v + '</span>';
+  });
+  el.innerHTML = html;
+}
+
+// ===== STATS =====
+function updateStats() {
+  document.getElementById('stat-total').textContent = formatNum(state.totalEarned);
+  document.getElementById('stat-best').textContent = state.bestRoll;
+  document.getElementById('stat-crits').textContent = state.crits;
+  document.getElementById('stat-lucky').textContent = state.luckyDoubles;
+  document.getElementById('stat-dice').textContent = state.diceType;
+
+  // Per second
+  var ps = 0;
+  if (state.upgrades.autoRoll.count > 0) {
+    var numDice = 1 + state.upgrades.multiDice.count;
+    var avgRoll = (state.diceMax + 1) / 2;
+    ps = state.upgrades.autoRoll.count * numDice * avgRoll * state.multiplier;
+  }
+  document.getElementById('per-second').textContent = formatNum(Math.round(ps));
+}
+
+// ===== SHOP =====
+function updateShop() {
+  var keys = Object.keys(state.upgrades);
+  keys.forEach(function(key) {
+    var u = state.upgrades[key];
+    var price = getPrice(key);
+    var el = document.getElementById('shop-' + key);
+    var priceEl = document.getElementById('price-' + key);
+    var countEl = document.getElementById('count-' + key);
+
+    if (priceEl) priceEl.textContent = formatNum(price);
+
+    if (countEl) {
+      if (key === 'multiplier') countEl.textContent = 'x' + state.multiplier;
+      else countEl.textContent = u.count;
+    }
+
+    // Disable if can't afford or one-time already bought
+    var bought = u.once && u.count >= 1;
+    if (state.score < price || bought) {
+      el.classList.add('disabled');
+    } else {
+      el.classList.remove('disabled');
+    }
+  });
+}
+
+// ===== BUY UPGRADE =====
+function buyUpgrade(key) {
+  var u = state.upgrades[key];
+  var price = getPrice(key);
+  if (state.score < price) {
+    document.getElementById('shop-' + key).classList.add('shake');
+    setTimeout(function(){document.getElementById('shop-' + key).classList.remove('shake')}, 400);
+    return;
+  }
+  if (u.once && u.count >= 1) return;
+
+  state.score -= price;
+  u.count++;
+
+  // Apply effects
+  if (key === 'd8')  { state.diceMax = 8;  state.diceType = 'd8';  document.getElementById('dice-type-label').textContent = 'd8'; }
+  if (key === 'd12') { state.diceMax = 12; state.diceType = 'd12'; document.getElementById('dice-type-label').textContent = 'd12'; }
+  if (key === 'd20') { state.diceMax = 20; state.diceType = 'd20'; document.getElementById('dice-type-label').textContent = 'd20'; }
+  if (key === 'multiplier') { state.multiplier = Math.pow(2, u.count); }
+
+  // Update display
+  document.getElementById('score').textContent = formatNum(state.score);
+  renderDiceFace(document.getElementById('dice'), Math.floor(Math.random() * state.diceMax) + 1);
+
+  updateStats();
+  updateShop();
+}
+
+// ===== AUTO ROLL =====
+setInterval(function() {
+  if (state.upgrades.autoRoll.count > 0 && !rolling) {
+    for (var i = 0; i < state.upgrades.autoRoll.count; i++) {
+      rollDice();
+    }
+  }
+}, 1000);
+
+// ===== RESET =====
+function resetGame() {
+  state = {
+    score: 0, totalEarned: 0, totalRolls: 0, bestRoll: 0, crits: 0, luckyDoubles: 0,
+    diceMax: 6, diceType: 'd6', multiplier: 1,
+    upgrades: {
+      autoRoll:    { count: 0, basePrice: 50,   priceScale: 1.4 },
+      multiDice:   { count: 0, basePrice: 200,  priceScale: 1.5 },
+      luckyCharm:  { count: 0, basePrice: 500,  priceScale: 1.6 },
+      d8:          { count: 0, basePrice: 1000, priceScale: 1, once: true },
+      d12:         { count: 0, basePrice: 5000, priceScale: 1, once: true },
+      d20:         { count: 0, basePrice: 25000,priceScale: 1, once: true },
+      multiplier:  { count: 0, basePrice: 2000, priceScale: 2.5 },
+      critHit:     { count: 0, basePrice: 10000,priceScale: 1.8 }
+    },
+    history: []
+  };
+  document.getElementById('score').textContent = '0';
+  document.getElementById('total-rolls').textContent = '0';
+  document.getElementById('last-roll').textContent = '—';
+  document.getElementById('history').innerHTML = '';
+  document.getElementById('dice-type-label').textContent = 'd6';
+  renderDiceFace(document.getElementById('dice'), 1);
+  updateStats();
+  updateShop();
+}
+
+// ===== KEYBOARD =====
+document.addEventListener('keydown', function(e) {
+  if (e.code === 'Space' || e.code === 'Enter') {
+    e.preventDefault();
+    rollDice();
+  }
+});
+
+// Init
+renderDiceFace(document.getElementById('dice'), 1);
+updateShop();
+updateStats();
+</script>
+</body>
+</html>
